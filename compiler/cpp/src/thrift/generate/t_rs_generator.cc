@@ -1595,7 +1595,7 @@ void t_rs_generator::render_list_write(const string& list_var,
          << "&TListIdentifier::new(" << to_rust_field_type_enum(elem_type) << ", " << list_var
          << ".len() as i32"
          << ")"
-         << ")?;" << '\n';
+         << ")" << await << "?;" << '\n';
 
   string ref(list_var_is_ref ? "" : "&");
   f_gen_ << indent() << "for e in " << ref << list_var << " {" << '\n';
@@ -1615,7 +1615,7 @@ void t_rs_generator::render_set_write(const string& set_var,
          << "&TSetIdentifier::new(" << to_rust_field_type_enum(elem_type) << ", " << set_var
          << ".len() as i32"
          << ")"
-         << ")?;" << '\n';
+         << ")" << await << "?;" << '\n';
 
   string ref(set_var_is_ref ? "" : "&");
   f_gen_ << indent() << "for e in " << ref << set_var << " {" << '\n';
@@ -1635,7 +1635,7 @@ void t_rs_generator::render_map_write(const string& map_var,
   f_gen_ << indent() << "o_prot.write_map_begin("
          << "&TMapIdentifier::new(" << to_rust_field_type_enum(key_type) << ", "
          << to_rust_field_type_enum(val_type) << ", " << map_var << ".len() as i32)"
-         << ")?;" << '\n';
+         << ")" << await << "?;" << '\n';
 
   string ref(map_var_is_ref ? "" : "&");
   f_gen_ << indent() << "for (k, v) in " << ref << map_var << " {" << '\n';
