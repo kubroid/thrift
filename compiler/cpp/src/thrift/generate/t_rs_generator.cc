@@ -2447,8 +2447,14 @@ void t_rs_generator::render_handler_trait(t_service* tservice) {
     string func_args = rust_service_call_declaration(tfunc, false);
     string func_return = to_rust_type(tfunc->get_returntype());
     render_rustdoc((t_doc*)tfunc);
-    f_gen_ << indent() << async << "fn " << func_name << func_args << " -> " << thrift_crate << "::Result<" << func_return
-           << ">;" << '\n';
+    f_gen_ << indent() << async << "fn " << func_name << func_args << " -> " << thrift_crate << "::Result<" << func_return;
+    if (is_todo) {
+      f_gen_ << "> {"<< '\n';
+      f_gen_ << indent() << indent() << " todo!();\n";
+      f_gen_ << indent() << "}" << '\n';
+    } else {
+      f_gen_ << ">;" << '\n';
+    }
   }
   indent_down();
   f_gen_ << indent() << "}" << '\n';
@@ -2605,8 +2611,13 @@ void t_rs_generator::render_process_function(t_function* tfunc, const string& ha
     output_protocol_param = "_";
   }
 
+  string handler_type_sync = handler_type;
+  if (is_async) {
+    handler_type_sync += " + Sync";
+  }
+
   f_gen_ << indent() << "pub "<< async << "fn process_" << rust_snake_case(tfunc->get_name())
-         << "<H: " << handler_type << ">"
+         << "<H: " << handler_type_sync << ">"
          << "(handler: &H, " << sequence_number_param << ": i32, "
          << "i_prot: &mut " << input_protocol << ", " << output_protocol_param
          << ": &mut " << output_protocol << ") "
