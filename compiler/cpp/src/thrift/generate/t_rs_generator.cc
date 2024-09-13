@@ -561,6 +561,14 @@ void t_rs_generator::init_generator() {
 void t_rs_generator::render_attributes_and_includes() {
   // turn off some compiler/clippy warnings
 
+  // allow unused variabled in case todo
+  if (is_todo) {
+    f_gen_ << "#![allow(unused_variables)]" << "\n";
+  }
+  // none snake names allowed
+  f_gen_ << "#![allow(non_snake_case)]" << '\n';
+  // none camel case allowed
+  f_gen_ << "#![allow(non_camel_case_types)]" << '\n';
   // code may not be used
   f_gen_ << "#![allow(dead_code)]" << '\n';
   // code always includes BTreeMap/BTreeSet/OrderedFloat
