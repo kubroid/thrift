@@ -46,7 +46,6 @@ const set<string> RUST_RESERVED_WORDS_SET(RUST_RESERVED_WORDS,
                                                     / sizeof(RUST_RESERVED_WORDS[0]));
 
 static const string SYNC_CLIENT_GENERIC_BOUND_VARS("<IP, OP>");
-static const string SYNC_CLIENT_GENERIC_BOUNDS("where IP: TInputProtocol, OP: TOutputProtocol");
 
 // FIXME: extract common TMessageIdentifier function
 // FIXME: have to_rust_type deal with Option
@@ -55,11 +54,14 @@ class t_rs_generator : public t_generator {
   bool is_todo = false;
   bool is_async = false;
   std::string async = "";
+  std::string Async = "";
   std::string await = "";
   std::string trait_macro = "\n";
   std::string thrift_crate = "thrift";
   std::string input_protocol = "dyn  TInputProtocol";
   std::string output_protocol = "dyn  TOutputProtocol";
+  std::string processor = "TProcessor";
+  string SYNC_CLIENT_GENERIC_BOUNDS = "where IP: TInputProtocol, OP: TOutputProtocol";
 public:
   t_rs_generator(t_program* program, const std::map<std::string, std::string>& parsed_options, const std::string&)
     : t_generator(program) {
@@ -71,11 +73,14 @@ public:
       } else if( iter->first.compare("async") == 0) {
         is_async = true;
         async = "async ";
+        Async = "Async";
         await = ".await";
         trait_macro = "#[async_trait]\n";
         thrift_crate = "async_thrift";
-        input_protocol = "dyn TAsyncInoutProtocol";
+        input_protocol = "(dyn TAsyncInputProtocol + Send)";
         output_protocol = "(dyn TAsyncOutputProtocol + Send)";
+        processor = "TAsyncProcessor";
+        SYNC_CLIENT_GENERIC_BOUNDS = "where IP: TAsyncInputProtocol, OP: TAsyncOutputProtocol";
       } else {
         throw "unknown option rs:" + iter->first;
       }
@@ -583,6 +588,7 @@ void t_rs_generator::render_attributes_and_includes() {
   // add standard includes
   if (is_async) {
     f_gen_ << "extern crate async_thrift;" << '\n';
+    f_gen_ << "use async_trait::async_trait;" << '\n';
     f_gen_ << '\n';
   }
   f_gen_ << "use std::cell::RefCell;" << '\n';
@@ -598,8 +604,9 @@ void t_rs_generator::render_attributes_and_includes() {
   f_gen_ << "use " << thrift_crate << "::{ApplicationError, ApplicationErrorKind, ProtocolError, "
             "ProtocolErrorKind, TThriftClient};"
          << '\n';
+
   f_gen_ << "use " << thrift_crate << "::protocol::{TFieldIdentifier, TListIdentifier, TMapIdentifier, "
-            "TMessageIdentifier, TMessageType, TInputProtocol, TOutputProtocol, TSerializable, "
+            "TMessageIdentifier, TMessageType, T" << Async << "InputProtocol, T" << Async << "OutputProtocol, T" << Async << "Serializable, "
             "TSetIdentifier, TStructIdentifier, TType};"
          << '\n';
   f_gen_ << "use " << thrift_crate << "::protocol::field_id;" << '\n';
@@ -607,7 +614,7 @@ void t_rs_generator::render_attributes_and_includes() {
   f_gen_ << "use " << thrift_crate << "::protocol::verify_expected_sequence_number;" << '\n';
   f_gen_ << "use " << thrift_crate << "::protocol::verify_expected_service_call;" << '\n';
   f_gen_ << "use " << thrift_crate << "::protocol::verify_required_field_exists;" << '\n';
-  f_gen_ << "use " << thrift_crate << "::server::TProcessor;" << '\n';
+  f_gen_ << "use " << thrift_crate << "::server::" << processor << ";" << '\n';
   f_gen_ << '\n';
 
   // add all the program includes
@@ -948,7 +955,7 @@ void t_rs_generator::render_enum_impl(t_enum* tenum, const string& enum_name) {
   f_gen_ << "}" << '\n';
   f_gen_ << '\n';
 
-  f_gen_ << "impl TSerializable for " << enum_name << " {" << '\n';
+  f_gen_ << trait_macro << "impl T" << Async << "Serializable for " << enum_name << " {" << '\n';
   indent_up();
 
   f_gen_ << indent() << "#[allow(clippy::trivially_copy_pass_by_ref)]" << '\n';
@@ -1163,7 +1170,7 @@ void t_rs_generator::render_struct_impl(const string& struct_name,
     f_gen_ << "}" << '\n';
     f_gen_ << '\n';
 
-    f_gen_ << "impl TSerializable for " << struct_name << " {" << '\n';
+    f_gen_ << trait_macro << "impl T" << Async << "Serializable for " << struct_name << " {" << '\n';
     indent_up();
   }
 
@@ -1389,7 +1396,7 @@ void t_rs_generator::render_union_definition(const string& union_name, t_struct*
 }
 
 void t_rs_generator::render_union_impl(const string& union_name, t_struct* tstruct) {
-  f_gen_ << "impl TSerializable for " << union_name << " {" << '\n';
+  f_gen_ << trait_macro << "impl T" << Async << "Serializable for " << union_name << " {" << '\n';
   indent_up();
 
   render_union_read(union_name, tstruct);
@@ -1410,7 +1417,7 @@ void t_rs_generator::render_struct_write(t_struct* tstruct,
                                               t_rs_generator::e_struct_type struct_type) {
   f_gen_
       << indent()
-      << "fn write_to_out_protocol(&self, o_prot: &mut " << output_protocol << ") -> " << thrift_crate << "::Result<()> {"
+      << async << "fn write_to_out_protocol(&self, o_prot: &mut " << output_protocol << ") -> " << thrift_crate << "::Result<()> {"
       << '\n';
   indent_up();
 
@@ -1443,7 +1450,7 @@ void t_rs_generator::render_struct_write(t_struct* tstruct,
 void t_rs_generator::render_union_write(const string& union_name, t_struct* tstruct) {
   f_gen_
       << indent()
-      << "fn write_to_out_protocol(&self, o_prot: &mut " << output_protocol << ") -> " << thrift_crate << "::Result<()> {"
+      << async << "fn write_to_out_protocol(&self, o_prot: &mut " << output_protocol << ") -> " << thrift_crate << "::Result<()> {"
       << '\n';
   indent_up();
 
@@ -2088,7 +2095,7 @@ void t_rs_generator::render_client_trait(t_service* tservice) {
     string func_args = rust_service_call_declaration(tfunc, true);
     string func_return = to_rust_type(tfunc->get_returntype());
     render_rustdoc((t_doc*)tfunc);
-    f_gen_ << indent() << "fn " << func_name << func_args << " -> " << thrift_crate << "::Result<" << func_return
+    f_gen_ << indent() << async << "fn " << func_name << func_args << " -> " << thrift_crate << "::Result<" << func_return
            << ">;" << '\n';
   }
 
@@ -2210,7 +2217,7 @@ void t_rs_generator::render_send_recv_wrapper(t_function* tfunc) {
   string func_call_args = rust_service_call_invocation(tfunc);
   string func_return = to_rust_type(tfunc->get_returntype());
 
-  f_gen_ << indent() << "fn " << func_name << func_decl_args << " -> " << thrift_crate << "::Result<" << func_return
+  f_gen_ << indent() << async << "fn " << func_name << func_decl_args << " -> " << thrift_crate << "::Result<" << func_return
          << "> {" << '\n';
   indent_up();
 
@@ -2274,7 +2281,7 @@ void t_rs_generator::render_recv(t_function* tfunc) {
   f_gen_ << indent() << "let message_ident = self.i_prot_mut().read_message_begin()" << await << "?;" << '\n';
   f_gen_
       << indent()
-      << "verify_expected_sequence_number(self.sequence_number(), message_ident.sequence_number)" << await << "?;"
+      << "verify_expected_sequence_number(self.sequence_number(), message_ident.sequence_number)?;"
       << '\n';
   f_gen_ << indent() << "verify_expected_service_call(\"" << tfunc->get_name()
          << "\", &message_ident.name)?;" << '\n'; // note: use *original* name
@@ -2437,7 +2444,7 @@ void t_rs_generator::render_handler_trait(t_service* tservice) {
     string func_args = rust_service_call_declaration(tfunc, false);
     string func_return = to_rust_type(tfunc->get_returntype());
     render_rustdoc((t_doc*)tfunc);
-    f_gen_ << indent() << "fn " << func_name << func_args << " -> " << thrift_crate << "::Result<" << func_return
+    f_gen_ << indent() << async << "fn " << func_name << func_args << " -> " << thrift_crate << "::Result<" << func_return
            << ">;" << '\n';
   }
   indent_down();
@@ -2495,7 +2502,7 @@ void t_rs_generator::render_processor_definition_and_impl(t_service* tservice) {
   f_gen_ << '\n';
 
   // processor impl
-  f_gen_ << indent() << "impl <H: " << handler_trait_name << "> TProcessor for "
+  f_gen_ << indent() << trait_macro << indent() << "impl <H: " << handler_trait_name << "> " << processor << " for "
          << service_processor_name << "<H> {" << '\n';
   indent_up();
 
@@ -2521,7 +2528,7 @@ void t_rs_generator::render_processor_definition_and_impl(t_service* tservice) {
   indent_down();
   f_gen_ << indent() << "};" << '\n';
   f_gen_ << indent() << thrift_crate << "::server::handle_process_result(&message_ident, res, o_prot)"
-         << '\n';
+          << await << '\n';
 
   indent_down();
   f_gen_ << indent() << "}" << '\n';
@@ -2606,7 +2613,7 @@ void t_rs_generator::render_process_function(t_function* tfunc, const string& ha
          << service_call_args_struct_name(tfunc) << "::read_from_in_protocol(i_prot)" << await << "?;" << '\n';
 
   f_gen_ << indent() << "match handler." << service_call_handler_function_name(tfunc)
-         << rust_service_call_invocation(tfunc, "args.") << " {" << '\n'; // start match
+         << rust_service_call_invocation(tfunc, "args.") << await << " {" << '\n'; // start match
   indent_up();
 
   // handler succeeded
