@@ -2182,7 +2182,7 @@ void t_rs_generator::render_client_tthriftclient_impl(const string& client_impl_
 void t_rs_generator::render_client_process_impl(t_service* tservice) {
   string marker_extension = "" + sync_client_marker_traits_for_extension(tservice);
 
-  f_gen_ << "impl <C: TThriftClient + " << rust_client_marker_trait_name(tservice)
+  f_gen_ << trait_macro << "impl <C: TThriftClient + " << rust_client_marker_trait_name(tservice)
          << marker_extension << "> " << rust_client_trait_name(tservice) << " for C {" << '\n';
   indent_up();
 
@@ -3183,7 +3183,7 @@ string t_rs_generator::rust_client_impl_name(t_service* tservice) {
 }
 
 string t_rs_generator::rust_handler_trait_name(t_service* tservice) {
-  return rust_camel_case(tservice->get_name()) + (is_async?"AsyncHandler":"SyncHandler");
+  return rust_camel_case(tservice->get_name()) + (is_async?"AsyncHandler + Sync":"SyncHandler");
 }
 
 string t_rs_generator::rust_processor_name(t_service* tservice) {
