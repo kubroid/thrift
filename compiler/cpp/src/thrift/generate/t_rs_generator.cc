@@ -2208,6 +2208,9 @@ string t_rs_generator::sync_client_marker_traits_for_extension(t_service* tservi
     marker_extension = marker_extension + sync_client_marker_traits_for_extension(extends);
   }
 
+  if (is_async) {
+    return marker_extension + " + Send";
+  }
   return marker_extension;
 }
 
@@ -2455,6 +2458,9 @@ void t_rs_generator::render_handler_trait(t_service* tservice) {
 void t_rs_generator::render_processor_definition_and_impl(t_service* tservice) {
   string service_processor_name = rust_processor_name(tservice);
   string handler_trait_name = rust_handler_trait_name(tservice);
+  if (is_async) {
+    handler_trait_name+= " + Sync";
+  }
 
   // struct
   f_gen_ << indent() << "pub struct " << service_processor_name << "<H: " << handler_trait_name
@@ -2494,7 +2500,7 @@ void t_rs_generator::render_processor_definition_and_impl(t_service* tservice) {
   vector<t_function*>::iterator func_iter;
   for (func_iter = functions.begin(); func_iter != functions.end(); ++func_iter) {
     t_function* tfunc = (*func_iter);
-    render_process_function(tfunc, handler_trait_name);
+    render_process_function(tfunc, rust_handler_trait_name(tservice));
   }
 
   indent_down();
@@ -3183,7 +3189,7 @@ string t_rs_generator::rust_client_impl_name(t_service* tservice) {
 }
 
 string t_rs_generator::rust_handler_trait_name(t_service* tservice) {
-  return rust_camel_case(tservice->get_name()) + (is_async?"AsyncHandler + Sync":"SyncHandler");
+  return rust_camel_case(tservice->get_name()) + (is_async?"AsyncHandler":"SyncHandler");
 }
 
 string t_rs_generator::rust_processor_name(t_service* tservice) {
