@@ -53,13 +53,14 @@ static const string SYNC_CLIENT_GENERIC_BOUND_VARS("<IP, OP>");
 class t_rs_generator : public t_generator {
   bool is_todo = false;
   bool is_async = false;
+  bool is_args_optional = false;
   std::string async = "";
   std::string Async = "";
   std::string await = "";
   std::string trait_macro = "\n";
   std::string thrift_crate = "thrift";
-  std::string input_protocol = "dyn  TInputProtocol";
-  std::string output_protocol = "dyn  TOutputProtocol";
+  std::string input_protocol = "dyn TInputProtocol";
+  std::string output_protocol = "dyn TOutputProtocol";
   std::string processor = "TProcessor";
   string SYNC_CLIENT_GENERIC_BOUNDS = "where IP: TInputProtocol, OP: TOutputProtocol";
 public:
@@ -70,6 +71,8 @@ public:
     for( iter = parsed_options.begin(); iter != parsed_options.end(); ++iter) {
       if( iter->first.compare("todo") == 0) {
         is_todo = true;
+      } else if( iter->first.compare("args_optional") == 0) {
+        is_args_optional = true;
       } else if( iter->first.compare("async") == 0) {
         is_async = true;
         async = "async ";
@@ -3102,6 +3105,9 @@ bool t_rs_generator::is_optional(t_field::e_req req) {
 
 t_field::e_req t_rs_generator::actual_field_req(t_field* tfield,
                                                 t_rs_generator::e_struct_type struct_type) {
+  if (is_args_optional && struct_type == t_rs_generator::T_ARGS ) {
+    return tfield->get_req() == t_field::T_OPT_IN_REQ_OUT ? t_field::T_OPTIONAL : tfield->get_req();
+  }
   return struct_type == t_rs_generator::T_ARGS ? t_field::T_REQUIRED : tfield->get_req();
 }
 
@@ -3307,4 +3313,6 @@ THRIFT_REGISTER_GENERATOR(
   "Rust",
   "    todo             Generate default method implementations with todo!().\n"
   "    async            Gnerate code for async_thrift.\n"
-  )
+  "    args_optional    Make service arguments optional by default. This can be useful for integration with Python applications "
+  "based on thriftpy2, which do not send required parameters if their values are None.\n"
+)
